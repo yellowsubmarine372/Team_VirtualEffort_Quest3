@@ -1,18 +1,10 @@
+using System;
+using System.Collections.Concurrent;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using Multimodal.Voice;
 
-/// <summary>
-/// 씬의 UI와 RealtimeVoiceManager/RealtimeAudioPlayer를 연결하는 컨트롤러
-///
-/// Inspector에서 다음을 드래그 연결:
-/// - voiceManager: RealtimeManager 오브젝트
-/// - audioPlayer: AudioPlayer 오브젝트
-/// - chatText: ScrollView > Content > ChatText
-/// - statusText: ChatPanel > StatusText
-/// - micButton: MicButton
-/// </summary>
 public class AIChatController : MonoBehaviour
 {
     [Header("References")]
@@ -29,74 +21,84 @@ public class AIChatController : MonoBehaviour
     private bool _isMicActive;
     private string _chatLog = "";
 
+    // 백그라운드 스레드 → 메인 스레드 마샬링용 큐
+    private readonly ConcurrentQueue<Action> _mainThreadQueue = new ConcurrentQueue<Action>();
+
     private void Start()
     {
         _micButtonText = micButton.GetComponentInChildren<TMP_Text>();
-
-        // 버튼 클릭
         micButton.onClick.AddListener(OnMicButtonClicked);
 
-        // 이벤트 구독
-        voiceManager.OnConnected += () =>
+        voiceManager.OnConnected += () => Enqueue(() =>
         {
             statusText.text = "연결됨 - 말하세요";
             statusText.color = Color.green;
-        };
+        });
 
-        voiceManager.OnDisconnected += (reason) =>
+        voiceManager.OnDisconnected += (reason) => Enqueue(() =>
         {
             statusText.text = "연결 끊김";
             statusText.color = Color.red;
             SetMicUI(false);
-        };
+        });
 
-        voiceManager.OnSpeechDetected += () =>
+        voiceManager.OnSpeechDetected += () => Enqueue(() =>
         {
             statusText.text = "듣는 중...";
             statusText.color = Color.yellow;
-        };
+        });
 
-        voiceManager.OnTranscript += (transcript) =>
+        voiceManager.OnTranscript += (transcript) => Enqueue(() =>
         {
             AppendChat($"<color=#88ccff>나: {transcript}</color>\n");
             statusText.text = "응답 중...";
             statusText.color = new Color(1f, 0.6f, 0f);
-        };
+        });
 
-        voiceManager.OnStreamingText += (delta) =>
+        voiceManager.OnStreamingText += (delta) => Enqueue(() =>
         {
-            // 실시간 텍스트 스트리밍 - 현재 AI 응답에 이어붙이기
             chatText.text += delta;
             ScrollToBottom();
-        };
+        });
 
-        voiceManager.OnAIResponse += (fullText) =>
+        voiceManager.OnAIResponse += (fullText) => Enqueue(() =>
         {
-            // 응답 완료 - 전체 텍스트로 교체 (스트리밍 중 누적된 것 정리)
-            // 스트리밍으로 이미 표시됐으므로 줄바꿈만 추가
             _chatLog = chatText.text + "\n\n";
             chatText.text = _chatLog;
             statusText.text = "말하세요";
             statusText.color = Color.green;
             ScrollToBottom();
-        };
+        });
 
-        voiceManager.OnAudioDelta += (audioData) =>
+        voiceManager.OnAudioDelta += (audioData) => Enqueue(() =>
         {
             audioPlayer.EnqueueAudio(audioData);
-        };
+        });
 
-        voiceManager.OnError += (code, msg) =>
+        voiceManager.OnError += (code, msg) => Enqueue(() =>
         {
             statusText.text = $"오류: {msg}";
             statusText.color = Color.red;
             Debug.LogError($"[AIChatController] {code}: {msg}");
-        };
+        });
 
-        // 초기 상태
         statusText.text = "마이크 버튼을 눌러 시작";
         statusText.color = Color.gray;
         chatText.text = "";
+    }
+
+    private void Update()
+    {
+        // 매 프레임 큐에 쌓인 액션을 메인 스레드에서 실행
+        while (_mainThreadQueue.TryDequeue(out var action))
+        {
+            action.Invoke();
+        }
+    }
+
+    private void Enqueue(Action action)
+    {
+        _mainThreadQueue.Enqueue(action);
     }
 
     private async void OnMicButtonClicked()
@@ -110,7 +112,7 @@ public class AIChatController : MonoBehaviour
                 await voiceManager.StartVoice("ko");
                 SetMicUI(true);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 statusText.text = $"시작 실패: {ex.Message}";
                 statusText.color = Color.red;
