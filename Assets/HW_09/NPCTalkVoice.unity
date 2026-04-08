@@ -703,7 +703,7 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
   m_PlayOnAwake: 0
-  m_Volume: 0
+  m_Volume: 1
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -1113,9 +1113,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   voiceManager: {fileID: 1784278920}
   audioPlayer: {fileID: 1409781793}
-  userText: {fileID: 662423843}
-  aiText: {fileID: 9417777}
-  statusText: {fileID: 876363469}
+  userText: {fileID: 0}
+  aiText: {fileID: 0}
+  statusText: {fileID: 0}
   micButton: {fileID: 812283034}
 --- !u!114 &1784278920
 MonoBehaviour:
@@ -1151,7 +1151,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1876005559
 RectTransform:
   m_ObjectHideFlags: 0

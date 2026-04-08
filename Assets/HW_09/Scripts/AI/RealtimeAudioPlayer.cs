@@ -132,5 +132,20 @@ namespace Multimodal.Voice
                 _pcmBuffer.Clear();
             }
         }
+
+        /// <summary>
+        /// 오디오가 재생 중이거나 버퍼에 데이터가 남아있으면 true
+        /// </summary>
+        public bool IsPlaying
+        {
+            get
+            {
+                if (_isPlaying) return true;
+                lock (_bufferLock)
+                {
+                    return _pcmBuffer.Count > 0;
+                }
+            }
+        }
     }
 }

@@ -9,87 +9,78 @@ public class AIChatController : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private RealtimeVoiceManager voiceManager;
-    [SerializeField] private RealtimeAudioPlayer audioPlayer;
+    [SerializeField] private RealtimeAudioPlayer audioPlayer; // null이면 음성 재생 안 함
 
-    [Header("UI")]
-    [SerializeField] private TMP_Text chatText;
+    [Header("UI (비워두면 해당 UI 무시)")]
+    [SerializeField] private TMP_Text userText;
+    [SerializeField] private TMP_Text aiText;
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private Button micButton;
-    [SerializeField] private ScrollRect scrollRect;
 
     private TMP_Text _micButtonText;
     private bool _isMicActive;
-    private string _chatLog = "";
 
-    // 백그라운드 스레드 → 메인 스레드 마샬링용 큐
     private readonly ConcurrentQueue<Action> _mainThreadQueue = new ConcurrentQueue<Action>();
 
     private void Start()
     {
-        _micButtonText = micButton.GetComponentInChildren<TMP_Text>();
-        micButton.onClick.AddListener(OnMicButtonClicked);
+        if (micButton != null)
+        {
+            _micButtonText = micButton.GetComponentInChildren<TMP_Text>();
+            micButton.onClick.AddListener(OnMicButtonClicked);
+        }
 
         voiceManager.OnConnected += () => Enqueue(() =>
         {
-            statusText.text = "연결됨 - 말하세요";
-            statusText.color = Color.green;
+            if (statusText != null) { statusText.text = "연결됨 - 말하세요"; statusText.color = Color.green; }
         });
 
         voiceManager.OnDisconnected += (reason) => Enqueue(() =>
         {
-            statusText.text = "연결 끊김";
-            statusText.color = Color.red;
+            if (statusText != null) { statusText.text = "연결 끊김"; statusText.color = Color.red; }
             SetMicUI(false);
         });
 
         voiceManager.OnSpeechDetected += () => Enqueue(() =>
         {
-            statusText.text = "듣는 중...";
-            statusText.color = Color.yellow;
+            if (statusText != null) { statusText.text = "듣는 중..."; statusText.color = Color.yellow; }
+            if (aiText != null) aiText.text = "";
         });
 
         voiceManager.OnTranscript += (transcript) => Enqueue(() =>
         {
-            AppendChat($"<color=#88ccff>나: {transcript}</color>\n");
-            statusText.text = "응답 중...";
-            statusText.color = new Color(1f, 0.6f, 0f);
+            if (userText != null) userText.text = transcript;
+            if (statusText != null) { statusText.text = "응답 중..."; statusText.color = new Color(1f, 0.6f, 0f); }
         });
 
         voiceManager.OnStreamingText += (delta) => Enqueue(() =>
         {
-            chatText.text += delta;
-            ScrollToBottom();
+            if (aiText != null) aiText.text += delta;
         });
 
         voiceManager.OnAIResponse += (fullText) => Enqueue(() =>
         {
-            _chatLog = chatText.text + "\n\n";
-            chatText.text = _chatLog;
-            statusText.text = "말하세요";
-            statusText.color = Color.green;
-            ScrollToBottom();
+            if (aiText != null) aiText.text = fullText;
+            if (statusText != null) { statusText.text = "말하세요"; statusText.color = Color.green; }
         });
 
         voiceManager.OnAudioDelta += (audioData) => Enqueue(() =>
         {
-            audioPlayer.EnqueueAudio(audioData);
+            if (audioPlayer != null) audioPlayer.EnqueueAudio(audioData);
         });
 
         voiceManager.OnError += (code, msg) => Enqueue(() =>
         {
-            statusText.text = $"오류: {msg}";
-            statusText.color = Color.red;
-            Debug.LogError($"[AIChatController] {code}: {msg}");
+            if (statusText != null) { statusText.text = $"오류: {msg}"; statusText.color = Color.red; }
         });
 
-        statusText.text = "마이크 버튼을 눌러 시작";
-        statusText.color = Color.gray;
-        chatText.text = "";
+        if (userText != null) userText.text = "";
+        if (aiText != null) aiText.text = "";
+        if (statusText != null) { statusText.text = "마이크 버튼을 눌러 시작"; statusText.color = Color.gray; }
     }
 
     private void Update()
     {
-        // 매 프레임 큐에 쌓인 액션을 메인 스레드에서 실행
         while (_mainThreadQueue.TryDequeue(out var action))
         {
             action.Invoke();
@@ -107,28 +98,26 @@ public class AIChatController : MonoBehaviour
         {
             try
             {
-                micButton.interactable = false;
-                statusText.text = "연결 중...";
+                if (micButton != null) micButton.interactable = false;
+                if (statusText != null) statusText.text = "연결 중...";
                 await voiceManager.StartVoice("ko");
                 SetMicUI(true);
             }
             catch (Exception ex)
             {
-                statusText.text = $"시작 실패: {ex.Message}";
-                statusText.color = Color.red;
+                if (statusText != null) { statusText.text = $"시작 실패: {ex.Message}"; statusText.color = Color.red; }
             }
             finally
             {
-                micButton.interactable = true;
+                if (micButton != null) micButton.interactable = true;
             }
         }
         else
         {
             voiceManager.StopVoice();
-            audioPlayer.Clear();
+            if (audioPlayer != null) audioPlayer.Clear();
             SetMicUI(false);
-            statusText.text = "마이크 버튼을 눌러 시작";
-            statusText.color = Color.gray;
+            if (statusText != null) { statusText.text = "마이크 버튼을 눌러 시작"; statusText.color = Color.gray; }
         }
     }
 
@@ -138,22 +127,6 @@ public class AIChatController : MonoBehaviour
         if (_micButtonText != null)
         {
             _micButtonText.text = active ? "마이크 중지" : "마이크 시작";
-        }
-    }
-
-    private void AppendChat(string text)
-    {
-        _chatLog += text;
-        chatText.text = _chatLog + "\n<color=#aaffaa>AI: </color>";
-        ScrollToBottom();
-    }
-
-    private void ScrollToBottom()
-    {
-        if (scrollRect != null)
-        {
-            Canvas.ForceUpdateCanvases();
-            scrollRect.verticalNormalizedPosition = 0f;
         }
     }
 }

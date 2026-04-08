@@ -13,6 +13,10 @@ namespace Multimodal.Voice
         [Header("Audio Settings")]
         [SerializeField] private int sampleRate = 24000;
         [SerializeField] private float chunkIntervalSeconds = 0.2f;
+        [SerializeField] private float postSpeechCooldown = 0.5f; // AI 재생 끝난 후 대기 시간
+
+        [Header("References")]
+        [SerializeField] private RealtimeAudioPlayer audioPlayer;
 
         [Header("Debug")]
         [SerializeField] private bool enableDebugLogs = true;
@@ -34,6 +38,8 @@ namespace Multimodal.Voice
         private MicrophoneRecorder _micRecorder;
 
         private bool _isVoiceActive;
+        private bool _isAIResponding; // 서버에서 응답 중 (TEXT_DELTA ~ RESPONSE_END)
+        private float _cooldownTimer;
         private string _currentSessionId;
         private Coroutine _audioStreamingCoroutine;
         private string _currentResponse = "";
@@ -52,6 +58,7 @@ namespace Multimodal.Voice
             _realtimeClient.OnTextDelta += HandleTextDelta;
             _realtimeClient.OnResponseEnd += HandleResponseEnd;
             _realtimeClient.OnAudioDelta += HandleAudioDelta;
+            _realtimeClient.OnAudioDone += HandleAudioDone;
             _realtimeClient.OnError += HandleError;
 
             _micRecorder.OnError += (msg) => HandleError("MIC_ERROR", msg);
@@ -146,6 +153,19 @@ namespace Multimodal.Voice
         #endregion
 
         #region Audio Streaming
+
+        /// 마이크를 뮤트해야 하는지 판단:
+        /// 1. 서버에서 응답이 오고 있거나
+        /// 2. AudioPlayer에서 아직 재생 중이거나
+        /// 3. 재생 끝난 직후 쿨다운 중
+        private bool ShouldMuteMic()
+        {
+            if (_isAIResponding) return true;
+            if (audioPlayer != null && audioPlayer.IsPlaying) return true;
+            if (_cooldownTimer > 0f) return true;
+            return false;
+        }
+
         private IEnumerator StreamAudioCoroutine()
         {
             var waitInterval = new WaitForSeconds(chunkIntervalSeconds);
@@ -153,10 +173,19 @@ namespace Multimodal.Voice
 
             while (_isVoiceActive)
             {
-                byte[] audioChunk = _micRecorder.GetLatestAudioChunkAsPCM16(chunkSize);
-                if (audioChunk != null && audioChunk.Length > 0)
+                // 쿨다운 타이머 감소
+                if (_cooldownTimer > 0f)
                 {
-                    _ = SendAudioChunkAsync(audioChunk);
+                    _cooldownTimer -= chunkIntervalSeconds;
+                }
+
+                if (!ShouldMuteMic())
+                {
+                    byte[] audioChunk = _micRecorder.GetLatestAudioChunkAsPCM16(chunkSize);
+                    if (audioChunk != null && audioChunk.Length > 0)
+                    {
+                        _ = SendAudioChunkAsync(audioChunk);
+                    }
                 }
                 yield return waitInterval;
             }
@@ -203,6 +232,7 @@ namespace Multimodal.Voice
 
         private void HandleTextDelta(string delta)
         {
+            _isAIResponding = true;
             _currentResponse += delta;
             OnStreamingText?.Invoke(delta);
         }
@@ -210,13 +240,23 @@ namespace Multimodal.Voice
         private void HandleResponseEnd(string fullText)
         {
             DebugLog($"Response complete: {fullText}");
+            _isAIResponding = false;
+            // 쿨다운 시작 — AudioPlayer 재생 완료 후에도 잔향/에코 방지
+            _cooldownTimer = postSpeechCooldown;
             OnAIResponse?.Invoke(fullText);
             _currentResponse = "";
         }
 
         private void HandleAudioDelta(byte[] audioData)
         {
+            _isAIResponding = true;
             OnAudioDelta?.Invoke(audioData);
+        }
+
+        private void HandleAudioDone()
+        {
+            DebugLog("Audio stream done from server");
+            // 서버 전송 완료지만 AudioPlayer.IsPlaying이 끝날 때까지 ShouldMuteMic()이 true 유지
         }
 
         private void HandleError(string errorCode, string errorMessage)

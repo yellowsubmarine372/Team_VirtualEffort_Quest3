@@ -25,6 +25,7 @@ namespace Multimodal.AIBridge
             public const string TRANSCRIPT = "TRANSCRIPT";
             public const string TEXT_DELTA = "TEXT_DELTA";
             public const string AUDIO_DELTA = "AUDIO_DELTA";
+            public const string AUDIO_DONE = "AUDIO_DONE";
             public const string RESPONSE_END = "RESPONSE_END";
             public const string STREAM_ERROR = "STREAM_ERROR";
         }
@@ -37,6 +38,7 @@ namespace Multimodal.AIBridge
         public event Action<string> OnTranscript;
         public event Action<string> OnTextDelta;
         public event Action<byte[]> OnAudioDelta;
+        public event Action OnAudioDone;
         public event Action<string> OnResponseEnd;
         public event Action<string, string> OnError;
         #endregion
@@ -49,6 +51,9 @@ namespace Multimodal.AIBridge
         private bool _isStreaming;
         private CancellationTokenSource _cts;
         private TaskCompletionSource<bool> _connectTcs;
+
+        // 프레임 조각 재조립용 버퍼
+        private readonly StringBuilder _messageBuffer = new StringBuilder();
         #endregion
 
         #region Constructor
@@ -208,10 +213,26 @@ namespace Multimodal.AIBridge
         {
             try
             {
-                var json = Encoding.UTF8.GetString(data, offset, length);
-                var message = JObject.Parse(json);
-                var type = message["type"]?.ToString();
+                var fragment = Encoding.UTF8.GetString(data, offset, length);
+                _messageBuffer.Append(fragment);
 
+                // JSON 파싱 시도 — 실패하면 아직 조각이 더 와야 함
+                string buffered = _messageBuffer.ToString();
+                JObject message;
+                try
+                {
+                    message = JObject.Parse(buffered);
+                }
+                catch (JsonReaderException)
+                {
+                    // 아직 불완전한 메시지 — 다음 조각 대기
+                    return;
+                }
+
+                // 파싱 성공 — 버퍼 초기화
+                _messageBuffer.Clear();
+
+                var type = message["type"]?.ToString();
                 Debug.Log($"[Realtime] Received: {type}");
 
                 switch (type)
@@ -244,6 +265,10 @@ namespace Multimodal.AIBridge
                         }
                         break;
 
+                    case MessageType.AUDIO_DONE:
+                        OnAudioDone?.Invoke();
+                        break;
+
                     case MessageType.RESPONSE_END:
                         var fullText = message["full_text"]?.ToString();
                         OnResponseEnd?.Invoke(fullText);
@@ -263,6 +288,7 @@ namespace Multimodal.AIBridge
             catch (Exception ex)
             {
                 Debug.LogError($"[Realtime] Message handling error: {ex.Message}");
+                _messageBuffer.Clear();
             }
         }
 
@@ -277,6 +303,7 @@ namespace Multimodal.AIBridge
         {
             _isConnected = false;
             _isStreaming = false;
+            _messageBuffer.Clear();
             var reason = $"Code: {code}";
             Debug.Log($"[Realtime] WebSocket closed: {reason}");
             _connectTcs?.TrySetException(new Exception($"Connection closed: {reason}"));
@@ -295,8 +322,6 @@ namespace Multimodal.AIBridge
             var json = message.ToString(Formatting.None);
             await _webSocket.SendText(json);
         }
-
-        // Meta SDK NativeWebSocket dispatches messages automatically — no polling needed
         #endregion
 
         #region IDisposable
@@ -304,6 +329,7 @@ namespace Multimodal.AIBridge
         {
             _cts?.Cancel();
             _cts?.Dispose();
+            _messageBuffer.Clear();
             _webSocket?.CancelConnection();
             _webSocket = null;
         }
