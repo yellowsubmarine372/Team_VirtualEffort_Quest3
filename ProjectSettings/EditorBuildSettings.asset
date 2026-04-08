@@ -4,7 +4,19 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/MultiPlayScene.unity
+    guid: 197763af480f14bc78eb5afb416bf5d8
+  - enabled: 1
+    path: Assets/MainScene.unity
+    guid: adf5301653af3401a9ad68d23848f90f
+  - enabled: 1
+    path: Assets/TextChatScene.unity
+    guid: db1356a63ad2b4567bf45cb41a61b56d
+  - enabled: 1
+    path: Assets/VoiceChatScene.unity
+    guid: ffa1ce5ff0e3648e6ae7e7ffbe32ba32
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: b49fd0f7edf626b4aafcb7d85a06f8a7, type: 2}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: e47954ab42fb52042bcf5f2225a6e9e1, type: 2}
