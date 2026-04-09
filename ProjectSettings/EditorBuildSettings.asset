@@ -5,9 +5,12 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/D11_HandInteraction/EX_HandInteraction.unity
     guid: 29794a7b2f32822499ceb767b478cf2c
+  - enabled: 1
+    path: Assets/HW_09/NPCTalk.unity
+    guid: 949280d64aad84a75a12f7bdbd9d2193
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: b49fd0f7edf626b4aafcb7d85a06f8a7, type: 2}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: e47954ab42fb52042bcf5f2225a6e9e1, type: 2}
