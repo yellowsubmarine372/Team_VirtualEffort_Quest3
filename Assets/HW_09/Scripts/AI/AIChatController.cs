@@ -1,35 +1,32 @@
 using System;
 using System.Collections.Concurrent;
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
 using Multimodal.Voice;
 
+/// <summary>
+/// UI 버튼 없이 컨트롤러 트리거로 마이크 켜/끄기
+/// - 오른쪽 인덱스 트리거: 마이크 토글
+/// - Canvas는 텍스트 표시만
+/// </summary>
 public class AIChatController : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private RealtimeVoiceManager voiceManager;
-    [SerializeField] private RealtimeAudioPlayer audioPlayer; // null이면 음성 재생 안 함
+    [SerializeField] private RealtimeAudioPlayer audioPlayer;
 
     [Header("UI (비워두면 해당 UI 무시)")]
     [SerializeField] private TMP_Text userText;
     [SerializeField] private TMP_Text aiText;
     [SerializeField] private TMP_Text statusText;
-    [SerializeField] private Button micButton;
 
-    private TMP_Text _micButtonText;
     private bool _isMicActive;
+    private bool _isProcessing; // 연결/해제 중 중복 방지
 
     private readonly ConcurrentQueue<Action> _mainThreadQueue = new ConcurrentQueue<Action>();
 
     private void Start()
     {
-        if (micButton != null)
-        {
-            _micButtonText = micButton.GetComponentInChildren<TMP_Text>();
-            micButton.onClick.AddListener(OnMicButtonClicked);
-        }
-
         voiceManager.OnConnected += () => Enqueue(() =>
         {
             if (statusText != null) { statusText.text = "연결됨 - 말하세요"; statusText.color = Color.green; }
@@ -38,7 +35,7 @@ public class AIChatController : MonoBehaviour
         voiceManager.OnDisconnected += (reason) => Enqueue(() =>
         {
             if (statusText != null) { statusText.text = "연결 끊김"; statusText.color = Color.red; }
-            SetMicUI(false);
+            _isMicActive = false;
         });
 
         voiceManager.OnSpeechDetected += () => Enqueue(() =>
@@ -76,57 +73,54 @@ public class AIChatController : MonoBehaviour
 
         if (userText != null) userText.text = "";
         if (aiText != null) aiText.text = "";
-        if (statusText != null) { statusText.text = "마이크 버튼을 눌러 시작"; statusText.color = Color.gray; }
+        if (statusText != null) { statusText.text = "트리거를 눌러 시작"; statusText.color = Color.gray; }
     }
 
     private void Update()
     {
+        // 메인 스레드 큐 처리
         while (_mainThreadQueue.TryDequeue(out var action))
         {
             action.Invoke();
         }
+
+        // A 버튼으로 마이크 토글
+        if (OVRInput.GetDown(OVRInput.RawButton.A) && !_isProcessing)
+        {
+            ToggleMic();
+        }
     }
 
-    private void Enqueue(Action action)
+    private async void ToggleMic()
     {
-        _mainThreadQueue.Enqueue(action);
-    }
+        _isProcessing = true;
 
-    private async void OnMicButtonClicked()
-    {
         if (!_isMicActive)
         {
             try
             {
-                if (micButton != null) micButton.interactable = false;
                 if (statusText != null) statusText.text = "연결 중...";
                 await voiceManager.StartVoice("ko");
-                SetMicUI(true);
+                _isMicActive = true;
             }
             catch (Exception ex)
             {
                 if (statusText != null) { statusText.text = $"시작 실패: {ex.Message}"; statusText.color = Color.red; }
-            }
-            finally
-            {
-                if (micButton != null) micButton.interactable = true;
             }
         }
         else
         {
             voiceManager.StopVoice();
             if (audioPlayer != null) audioPlayer.Clear();
-            SetMicUI(false);
-            if (statusText != null) { statusText.text = "마이크 버튼을 눌러 시작"; statusText.color = Color.gray; }
+            _isMicActive = false;
+            if (statusText != null) { statusText.text = "트리거를 눌러 시작"; statusText.color = Color.gray; }
         }
+
+        _isProcessing = false;
     }
 
-    private void SetMicUI(bool active)
+    private void Enqueue(Action action)
     {
-        _isMicActive = active;
-        if (_micButtonText != null)
-        {
-            _micButtonText.text = active ? "마이크 중지" : "마이크 시작";
-        }
+        _mainThreadQueue.Enqueue(action);
     }
 }
