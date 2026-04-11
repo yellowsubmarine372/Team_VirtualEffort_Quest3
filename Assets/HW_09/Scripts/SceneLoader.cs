@@ -5,12 +5,12 @@ public class SceneLoader : MonoBehaviour
 {
     public void LoadTextChatScene()
     {
-        SceneManager.LoadScene("TextChatScene");
+        SceneManager.LoadScene("NPCChat");
     }
 
     public void LoadVoiceChatScene()
     {
-        SceneManager.LoadScene("VoiceChatScene");
+        SceneManager.LoadScene("NPCVoice");
     }
 
     public void LoadMultiPlayScene()
