@@ -242,7 +242,7 @@ MonoBehaviour:
   grabRadius: 0.15
   GrabLayer:
     serializedVersion: 2
-    m_Bits: 64
+    m_Bits: 0
 --- !u!1 &1647516987019087955
 GameObject:
   m_ObjectHideFlags: 0
