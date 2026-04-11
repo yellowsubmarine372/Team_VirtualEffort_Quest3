@@ -491,7 +491,7 @@ MonoBehaviour:
   reliableMode: 0
   encrypt: 0
   transmitEnabled: 1
-  samplingRate: 24000
+  samplingRate: 48000
   frameDuration: 40000
   bitrate: 30000
   sourceType: 0
@@ -669,7 +669,7 @@ MonoBehaviour:
   runInBackground: 1
   statsResetInterval: 1000
   speakerPrefab: {fileID: 0}
-  primaryRecorder: {fileID: 1514711439}
+  primaryRecorder: {fileID: 0}
   usePrimaryRecorder: 0
   cppCompatibilityMode: 0
   Settings:
