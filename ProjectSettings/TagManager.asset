@@ -29,6 +29,8 @@ TagManager:
   - QDSUITextInputField
   - SamplesInfoPanel
   - QDSUIToggleCheckboxRadio
+  - ClimbableCliff
+  - ClimbableLadder
   layers:
   - Default
   - TransparentFX
@@ -36,7 +38,7 @@ TagManager:
   - Overlay UI
   - Water
   - UI
-  - 
+  - Local Layer
   - 
   - 
   - 
