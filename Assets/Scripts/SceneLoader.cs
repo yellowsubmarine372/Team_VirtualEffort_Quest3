@@ -15,7 +15,7 @@ public class SceneLoader : MonoBehaviour
 
     public void LoadMultiPlayScene()
     {
-        SceneManager.LoadScene("MultiPlayScene");
+        SceneManager.LoadScene("MultiPlayer");
     }
 
     public void LoadMainScene()
