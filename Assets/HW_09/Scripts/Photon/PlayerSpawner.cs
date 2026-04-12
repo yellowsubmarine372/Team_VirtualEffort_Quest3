@@ -15,7 +15,8 @@ public class PlayerSpawner : MonoBehaviour, INetworkRunnerCallbacks
         {
             Debug.Log($"플레이어 접속 감지: {player.PlayerId}");
             // 캐릭터 생성 및 조종 권한 부여
-            runner.Spawn(playerPrefab, new Vector3(0, 10, 0), Quaternion.identity, player);
+            // runner.Spawn(playerPrefab, new Vector3(0, 10, 0), Quaternion.identity, player);
+            runner.Spawn(playerPrefab, Vector3.up, Quaternion.identity, player);
             // 접속할 때마다 x좌표를 랜덤하게
             // Vector3 spawnPosition = new Vector3(UnityEngine.Random.Range(-2f, 2f), 0, UnityEngine.Random.Range(-2f, 2f));
             // runner.Spawn(playerPrefab, spawnPosition, Quaternion.identity, player);
