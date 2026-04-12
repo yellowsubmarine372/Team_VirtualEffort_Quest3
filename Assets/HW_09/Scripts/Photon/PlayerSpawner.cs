@@ -6,7 +6,7 @@ using UnityEngine;
 
 public class PlayerSpawner : MonoBehaviour, INetworkRunnerCallbacks
 {
-    public NetworkObject playerPrefab; // NetworkPlayer 프리팹을 연결하세요
+    public NetworkObject playerPrefab;
 
     // 플레이어가 접속했을 때 호출
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
@@ -15,7 +15,10 @@ public class PlayerSpawner : MonoBehaviour, INetworkRunnerCallbacks
         {
             Debug.Log($"플레이어 {player} 접속! 캐릭터 소환 중...");
             // 캐릭터 생성 및 조종 권한 부여
-            runner.Spawn(playerPrefab, Vector3.up, Quaternion.identity, player);
+            // runner.Spawn(playerPrefab, Vector3.up, Quaternion.identity, player);
+            // 접속할 때마다 x좌표를 랜덤하게
+            Vector3 spawnPosition = new Vector3(UnityEngine.Random.Range(-2f, 2f), 0, UnityEngine.Random.Range(-2f, 2f));
+            runner.Spawn(playerPrefab, spawnPosition, Quaternion.identity, player);
         }
     }
 
